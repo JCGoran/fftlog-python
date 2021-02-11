@@ -1,5 +1,3 @@
-FFTlog in Python
-
 # 1D FFTlog in Python
 
 Stupid simple implementation of the FFTlog algorithm in Python, first described in [Hamilton, 2000][hamilton].
