@@ -64,9 +64,13 @@ result = fftlog.FFTlog(x, y)
 # performs the transformation in place with l = 0, n = 0, 2048 sampling points, and min(output x-array) = 1
 result.transform(param_bessel=0, param_power=0, size=2048, x0=1)
 # the results can then be accessed via result.x and result.y
+
 # the above can also be directly assigned with:
 # x_transform, y_transform = result.transform(0, 0, 2048, 1)
 ```
+
+The results are cached, so running `<object>.transform` with the same parameters will not waste time recomputing the result but will instead return the cached version, unless it is run with the parameter value `cache=False`, in which case that result will be computed from scratch and won't be placed in the cache.
+The cache is implemented as a Python dictionary, so the access time should be independent of the size of the cache (aka the time complexity is O(1)).
 
 # License
 
