@@ -101,6 +101,9 @@ x0 : float
         self._size = size
         self._x0 = x0
 
+    def __hash__(self):
+        return hash((self._param_bessel, self._param_power, self._size, self._x0))
+
     def __str__(self):
         return str({
             'param_bessel' : self._param_bessel,
@@ -142,34 +145,6 @@ x0 : float
 class FFTlog:
     """Main class for computing the FFTlog."""
 
-    class _Wrapper:
-        """Wrapper for Parameter class which has the output x-array and y-array."""
-        def __init__(self, parameter, x, y):
-            """Constructor."""
-            if not isinstance(parameter, Parameter):
-                raise TypeError
-            self._parameter = parameter
-            self._x = x
-            self._y = y
-
-        def __str__(self):
-            return str(self._parameter)
-
-        @property
-        def parameter(self):
-            """Returns an instance of the Parameter class."""
-            return self._parameter
-
-        @property
-        def x(self):
-            """Returns the output x-array."""
-            return self._x
-
-        @property
-        def y(self):
-            """Returns the output y-array."""
-            return self._y
-
     def __init__(
         self,
         x,
@@ -206,7 +181,7 @@ kind : str, optional
         self._interpolation = interp1d(x, y, kind=kind)
 
         # for keeping track of what's already been computed
-        self._cache = []
+        self._cache = {}
 
     @property
     def interpolation(self):
@@ -230,7 +205,7 @@ kind : str, optional
 
     def cache_clear(self):
         """Clears the cache."""
-        self._cache = []
+        self._cache = {}
 
     def _fft_input(
         self,
@@ -314,11 +289,9 @@ cache : bool, optional
         if cache:
             # check if we haven't already computed this one; if we did, we
             # return the cached element
-            for element in self._cache:
-                if element.parameter == parameter:
-                    self._x_fft = element.x
-                    self._y_fft = element.y
-                    return self.x, self.y
+            if parameter in self._cache:
+                self._x_fft, self._y_fft = self._cache[parameter]
+                return self.x, self.y
 
         halfsize = size // 2 + 1
         bias = _select_bias(param_bessel, param_power)
@@ -361,14 +334,9 @@ cache : bool, optional
         self._x_fft = output_x
         self._y_fft = size * temp_output_y
 
-        if cache:
-            self._cache.append(
-                self._Wrapper(
-                    parameter,
-                    self._x_fft,
-                    self._y_fft,
-                )
-            )
+        result = np.array((self._x_fft, self._y_fft))
 
-        # in case users want to immediately assign the return values
-        return np.array((self._x_fft, self._y_fft))
+        if cache:
+            self._cache[parameter] = result
+
+        return result
