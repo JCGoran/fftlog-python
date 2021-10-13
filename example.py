@@ -1,75 +1,141 @@
+import os
 import numpy as np
-import fftlog
 import matplotlib.pyplot as plt
+from scipy.interpolate import interp1d
 
-# load a simple power spectrum (generated with CLASS)
-data = np.loadtxt('power_test.dat')
+import fftlog
 
-k = data[:, 0]
-pk = data[:, 1]
+BENCHMARK_DIR = 'benchmark/'
 
-# map between the benchmark integral filenames and the pairs (l, n)
-integrals = {
-    0 : (0, 0),
-    1 : (2, 0),
-    2 : (4, 0),
-    3 : (1, 1),
-    4 : (3, 1),
-    5 : (0, 2),
-    6 : (2, 2),
-    7 : (1, 3),
-}
+def plot_benchmark(
+    input_file : str = 'power_test.dat',
+    size : int = 2048,
+    savepath : str = '',
+):
+    """Plots the result of the FFTlog with a known benchmark for various inputs."""
 
-benchmark = 0
-l, n = integrals[benchmark]
+    # load a simple power spectrum (generated with CLASS)
+    data = np.loadtxt(input_file)
 
-# input is k [array], pk [array], l [double or int], n [double or int], sampling points [int]
-result = fftlog.FFTlog(k, pk, l, n, 2048)
+    k = data[:, 0]
+    pk = data[:, 1]
 
-# this does the actual transform with the input being r_0
-# (in this case, since input k is in [h/Mpc], and input P(k) is in [Mpc/h]^3,
-# this needs to be in Mpc/h, i.e. here we set r_0 = 1 Mpc/h)
-# NOTE: results are stored in class members `x_fft` (the separations), and `y_fft` (the FFTlog)
-result.transform(1)
+    # map between the benchmark integral filenames and the pairs (l, n)
+    integrals = {
+        0 : (0, 0),
+        1 : (2, 0),
+        2 : (4, 0),
+        3 : (1, 1),
+        4 : (3, 1),
+        5 : (0, 2),
+        6 : (2, 2),
+        7 : (1, 3),
+    }
 
-# we don't care about results above 1000 Mpc/h
-criterion = result.x_fft <= 1000
+    # input is k [array], pk [array]
+    result = fftlog.FFTlog(k, pk)
 
-# set sensible limits
-plt.xlim(
-    min(result.x_fft[criterion]),
-    max(result.x_fft[criterion]),
-)
+    scaling = 8
+    fig, axes = plt.subplots(
+        nrows=len(integrals),
+        ncols=2,
+        figsize=(scaling, scaling * len(integrals) / 3)
+    )
 
-# plot r, FFTlog(r) * r^2
-plt.plot(
-    result.x_fft,
-    result.y_fft * (result.x_fft)**2,
-    label='FFTlog Python',
-)
+    # set sensible limits
+    for index, axis in enumerate(axes):
+        l, n = integrals[index]
 
-# benchmark to compare it with
-benchmark = np.loadtxt(f'integral{benchmark}.dat')
+        # this does the actual transform with the input being:
+        # l [int], n [double or int], r_0 [double]
+        # (in this case, since input k is in [h/Mpc], and input P(k) is in [Mpc/h]^3,
+        # this needs to be in Mpc/h, i.e. here we set r_0 = 1 Mpc/h)
+        # NOTE: results are stored in class members `x` (the separations), and `y` (the FFTlog)
 
-# the integral needs rescaling as benchmark uses dimensionless units
-factor = 2997.9
+        result.transform(param_bessel=l, param_power=n, size=size, x0=1)
 
-# benchmark is such that it outputs output_x^(n - l) * output_y if n > l, so we rescale it back;
-# the epsilon is needed so we don't divide by zero
-epsilon = 1e-20
-if n > l:
-    benchmark[:, 1] = benchmark[:, 1] / (benchmark[:, 0]**(n - l) + epsilon)
+        # we don't care about results above 1000 Mpc/h
+        criterion = result.x <= 1000
 
-# plot the benchmark
-plt.plot(
-    benchmark[:, 0] * factor,
-    benchmark[:, 1] * (factor * benchmark[:, 0])**2,
-    ls='--',
-    label='benchmark',
-)
+        axis_plot, axis_error = axis
 
-plt.grid()
-plt.legend()
+        axis_plot.set_xlim(
+            min(result.x[criterion]),
+            max(result.x[criterion]),
+        )
 
-# display it
-plt.show()
+        # plot r, FFTlog(r) * r^2
+        axis_plot.plot(
+            result.x,
+            result.y * (result.x)**2,
+            label='FFTlog Python',
+        )
+
+        # benchmark to compare it with
+        benchmark = np.loadtxt(os.path.join(BENCHMARK_DIR, f'integral{index}.dat'))
+
+        # the integral needs rescaling as benchmark uses dimensionless units
+        factor = 2997.9
+
+        # benchmark is such that it outputs output_x^(n - l) * output_y if n > l,
+        # so we rescale it back;
+        # the epsilon is needed so we don't divide by zero
+        epsilon = 1e-20
+        if n > l:
+            benchmark[:, 1] = benchmark[:, 1] / (benchmark[:, 0]**(n - l) + epsilon)
+
+        # plot the benchmark
+        axis_plot.plot(
+            benchmark[:, 0] * factor,
+            benchmark[:, 1] * (factor * benchmark[:, 0])**2,
+            ls='--',
+            label='benchmark',
+        )
+        axis_plot.set_title(f'l = {l}, n = {n}')
+        axis_plot.set_xlabel('r [Mpc/h]')
+        axis_plot.set_ylabel('ξ(r) × r² [Mpc²/h²]')
+        axis_plot.grid()
+        axis_plot.legend()
+
+        fftlog_interp = interp1d(
+            result.x[criterion],
+            result.y[criterion],
+            kind='cubic',
+            fill_value='extrapolate'
+        )
+        benchmark_interp = interp1d(
+            factor * benchmark[:, 0],
+            benchmark[:, 1],
+            kind='cubic',
+            fill_value='extrapolate'
+        )
+
+        axis_error.set_xlim(
+            min(result.x[criterion]),
+            max(result.x[criterion]),
+        )
+
+        # plot the error w.r.t. the benchmark
+        axis_error.plot(
+            result.x[criterion],
+            100 * np.abs(
+                1 - fftlog_interp(result.x[criterion]) / benchmark_interp(result.x[criterion])
+            ),
+        )
+
+        axis_error.set_yscale('log')
+        axis_error.set_xlabel('r [Mpc/h]')
+        axis_error.set_ylabel('rel. err. (in %)')
+        axis_error.grid()
+
+    fig.tight_layout()
+
+    # if we're saving it, we don't use `plt.show`
+    if savepath:
+        fig.savefig(savepath, dpi=300)
+    # otherwise, display it
+    else:
+        plt.show()
+
+if __name__ == '__main__':
+    plot_benchmark()

@@ -28,12 +28,12 @@ Code is heavily based on [twoFAST.jl][twofast-repo], and has been verified with 
 Clone the repo:
 
 ```bash
-git clone https://github.com/JCGoran/repo
+git clone https://github.com/JCGoran/fftlog-python
 ```
 
 You need the `numpy` and `scipy` packages for the FFTlog module to work.
 
-You can install them using `pip` from the `requirements.txt` file:
+If you don't have them already, you can install them using `pip` from the `requirements.txt` file:
 
 ```bash
 pip3 install -r requirements.txt
@@ -58,13 +58,14 @@ import fftlog
 3. To create an FFTlog:
 
 ```python
-# prepares the FFTlog with ell = 0, n = 0, with 2048 sampling points
-result = fftlog.FFTlog(x, y, 0, 0, 2048)
+# prepares the FFTlog with some input x-array and y-array
+result = fftlog.FFTlog(x, y)
 
-# performs the transformation in place with min(y_output) = 1
-result.transform(1)
-# alternatively, you can instead directly assign the output with:
-# x_transform, y_transform = result.transform(1)
+# performs the transformation in place with l = 0, n = 0, 2048 sampling points, and min(output x-array) = 1
+result.transform(param_bessel=0, param_power=0, size=2048, x0=1)
+# the results can then be accessed via result.x and result.y
+# the above can also be directly assigned with:
+# x_transform, y_transform = result.transform(0, 0, 2048, 1)
 ```
 
 # License
