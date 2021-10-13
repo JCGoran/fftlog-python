@@ -1,3 +1,11 @@
+r"""Module for computing Fourier-Bessel transforms of the form:
+\int_0^\infty
+\text{d}x\,
+x^2\,
+\frac{j_\ell(x y)}{(x y)^n}\,
+f(x)"""
+
+
 import numpy as np
 from scipy.interpolate import interp1d
 from scipy.special import loggamma
@@ -14,7 +22,7 @@ def _select_bias(
     n2 = 0.9999
     qmin = max(n2 - 1.0 - nu, -l)
     qmax = min(n1 + 3.0 - nu, 2.0)
-    qbest = (2. + n1 + n2 ) / 2. - nu
+    qbest = (2. + n1 + n2) / 2. - nu
     q = qbest
     if not (qmin < q and q < qmax):
         q = (qmin + 2. * qmax) / 3.
@@ -61,8 +69,23 @@ def _coefficients(
 
 class Parameter:
     """Class containing the parameters for the FFTlog."""
-    def __init__(self, param_bessel, param_power, size, x0):
-        """Constructor."""
+    def __init__(
+        self,
+        param_bessel : int,
+        param_power : float,
+        size : int,
+        x0 : float,
+    ):
+        """Constructor.
+Parameters:
+param_bessel : int
+    The order of the spherical Bessel function.
+param_power : float
+    The order of the power parameter.
+size : int
+    The number of sampling points for the FFTlog. Usually 1024 or above is sufficient.
+x0 : float
+    The smallest value of the output x-array; should be roughly equal to 1 / max(input x-array)."""
         if size < 0:
             raise ValueError(
                 'The argument `size` cannot be negative.'
@@ -86,14 +109,14 @@ class Parameter:
             'x0' : self._x0
         })
 
-    def __eq__(self, a):
-        if not isinstance(a, Parameter):
+    def __eq__(self, value):
+        if not isinstance(value, Parameter):
             raise TypeError
 
-        return self._size == a.size \
-        and self._param_bessel == a.param_bessel \
-        and self._param_power == a.param_power \
-        and self._x0 == a.x0
+        return self._size == value.size \
+        and self._param_bessel == value.param_bessel \
+        and self._param_power == value.param_power \
+        and self._x0 == value.x0
 
     @property
     def size(self):
@@ -155,9 +178,9 @@ class FFTlog:
     ):
         """Constructor for the FFTlog class.
 Parameters:
-x : array
+x : array-like
     An array of input values (the independent variable).
-y : array
+y : array-like
     An array of input values (the dependent variable).
 kind : str, optional
     The type of interpolation to use;
